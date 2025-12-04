@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium QR Code Generator</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Libraries -->
+    <script src="https://unpkg.com/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fa-solid fa-qrcode"></i>
+                <span>QR Gen</span>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" data-category="text">
+                    <i class="fa-solid fa-align-left"></i> <span>Text</span>
+                </button>
+                <button class="nav-item" data-category="url">
+                    <i class="fa-solid fa-link"></i> <span>URL</span>
+                </button>
+                <button class="nav-item" data-category="wifi">
+                    <i class="fa-solid fa-wifi"></i> <span>WiFi</span>
+                </button>
+                <button class="nav-item" data-category="vcard">
+                    <i class="fa-solid fa-address-card"></i> <span>vCard</span>
+                </button>
+                <button class="nav-item" data-category="email">
+                    <i class="fa-solid fa-envelope"></i> <span>Email</span>
+                </button>
+                <button class="nav-item" data-category="sms">
+                    <i class="fa-solid fa-comment-sms"></i> <span>SMS</span>
+                </button>
+                <button class="nav-item" data-category="whatsapp">
+                    <i class="fa-brands fa-whatsapp"></i> <span>WhatsApp</span>
+                </button>
+                <button class="nav-item" data-category="facebook">
+                    <i class="fa-brands fa-facebook"></i> <span>Facebook</span>
+                </button>
+                <button class="nav-item" data-category="instagram">
+                    <i class="fa-brands fa-instagram"></i> <span>Instagram</span>
+                </button>
+                <button class="nav-item" data-category="twitter">
+                    <i class="fa-brands fa-twitter"></i> <span>Twitter</span>
+                </button>
+                <button class="nav-item" data-category="barcode">
+                    <i class="fa-solid fa-barcode"></i> <span>Barcode</span>
+                </button>
+            </nav>
+
+            <div class="theme-toggle">
+                <input type="checkbox" id="theme-switch">
+                <label for="theme-switch" class="switch-label">
+                    <i class="fa-solid fa-sun"></i>
+                    <i class="fa-solid fa-moon"></i>
+                </label>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+
+            <!-- Input Section -->
+            <section class="input-section">
+                <div class="header">
+                    <h1 id="category-title">Generate Text QR</h1>
+                    <p>Enter your details below to create your QR code.</p>
+                </div>
+
+                <div class="forms-container">
+                    <!-- Dynamic Forms will be injected here or toggled -->
+
+                    <!-- Text Form -->
+                    <div class="form-group active" id="form-text">
+                        <label>Enter Text</label>
+                        <textarea id="input-text" placeholder="Type your text here..."></textarea>
+                    </div>
+
+                    <!-- URL Form -->
+                    <div class="form-group" id="form-url">
+                        <label>Website URL</label>
+                        <input type="url" id="input-url" placeholder="https://example.com">
+                    </div>
+
+                    <!-- WiFi Form -->
+                    <div class="form-group" id="form-wifi">
+                        <label>Network Name (SSID)</label>
+                        <input type="text" id="wifi-ssid" placeholder="MyWiFi">
+                        <label>Password</label>
+                        <input type="text" id="wifi-password" placeholder="Password">
+                        <label>Encryption</label>
+                        <select id="wifi-type">
+                            <option value="WPA">WPA/WPA2</option>
+                            <option value="WEP">WEP</option>
+                            <option value="nopass">No Encryption</option>
+                        </select>
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="wifi-hidden"> Hidden Network
+                        </label>
+                    </div>
+
+                    <!-- vCard Form -->
+                    <div class="form-group" id="form-vcard">
+                        <div class="row">
+                            <div class="col"><label>First Name</label><input type="text" id="vcard-first"
+                                    placeholder="John"></div>
+                            <div class="col"><label>Last Name</label><input type="text" id="vcard-last"
+                                    placeholder="Doe"></div>
+                        </div>
+                        <label>Mobile</label><input type="tel" id="vcard-phone" placeholder="+1 234 567 890">
+                        <label>Email</label><input type="email" id="vcard-email" placeholder="john@example.com">
+                        <label>Website</label><input type="url" id="vcard-site" placeholder="https://johndoe.com">
+                        <label>Company</label><input type="text" id="vcard-company" placeholder="Company Inc.">
+                        <label>Job Title</label><input type="text" id="vcard-job" placeholder="Manager">
+                        <label>Address</label><input type="text" id="vcard-street" placeholder="Street Address">
+                        <div class="row">
+                            <div class="col"><label>City</label><input type="text" id="vcard-city" placeholder="City">
+                            </div>
+                            <div class="col"><label>Country</label><input type="text" id="vcard-country"
+                                    placeholder="Country"></div>
+                        </div>
+                    </div>
+
+                    <!-- Email Form -->
+                    <div class="form-group" id="form-email">
+                        <label>Email Address</label>
+                        <input type="email" id="email-address" placeholder="recipient@example.com">
+                        <label>Subject</label>
+                        <input type="text" id="email-subject" placeholder="Subject">
+                        <label>Message</label>
+                        <textarea id="email-body" placeholder="Message body..."></textarea>
+                    </div>
+
+                    <!-- SMS Form -->
+                    <div class="form-group" id="form-sms">
+                        <label>Phone Number</label>
+                        <input type="tel" id="sms-phone" placeholder="+1234567890">
+                        <label>Message</label>
+                        <textarea id="sms-message" placeholder="SMS Content..."></textarea>
+                    </div>
+
+                    <!-- WhatsApp Form -->
+                    <div class="form-group" id="form-whatsapp">
+                        <label>WhatsApp Number</label>
+                        <input type="tel" id="whatsapp-phone" placeholder="+1234567890">
+                        <label>Message (Optional)</label>
+                        <textarea id="whatsapp-message" placeholder="Hello!"></textarea>
+                    </div>
+
+                    <!-- Social Forms (Facebook, Instagram, Twitter) - Similar structure, just URL or Username -->
+                    <div class="form-group" id="form-facebook">
+                        <label>Facebook Profile/Page URL</label>
+                        <input type="url" id="facebook-url" placeholder="https://facebook.com/yourpage">
+                    </div>
+                    <div class="form-group" id="form-instagram">
+                        <label>Instagram Username</label>
+                        <div class="input-group">
+                            <span class="prefix">@</span>
+                            <input type="text" id="instagram-username" placeholder="username">
+                        </div>
+                    </div>
+                    <div class="form-group" id="form-twitter">
+                        <label>Twitter/X Username</label>
+                        <div class="input-group">
+                            <span class="prefix">@</span>
+                            <input type="text" id="twitter-username" placeholder="username">
+                        </div>
+                    </div>
+
+                    <!-- Barcode Form -->
+                    <div class="form-group" id="form-barcode">
+                        <label>Barcode Text/Number</label>
+                        <input type="text" id="barcode-value" placeholder="123456789">
+                    </div>
+
+                </div>
+
+                <!-- Branding Section -->
+                <div class="branding-section">
+                    <h3><i class="fa-solid fa-paint-roller"></i> Customization</h3>
+                    <div class="row">
+                        <div class="col">
+                            <label>Shop/Brand Name</label>
+                            <input type="text" id="brand-name" placeholder="My Shop">
+                        </div>
+                        <div class="col">
+                            <label>Brand Color</label>
+                            <input type="color" id="brand-color" value="#000000">
+                        </div>
+                    </div>
+                    <label>Upload Logo (Center of QR)</label>
+                    <input type="file" id="brand-logo" accept="image/*">
+                </div>
+
+            </section>
+
+            <!-- Preview Section -->
+            <section class="preview-section">
+                <div class="preview-card">
+                    <div class="qr-wrapper" id="qr-wrapper">
+                        <!-- Loader -->
+                        <div class="loader" id="qr-loader"></div>
+                        <!-- QR Code will be rendered here -->
+                        <div id="qr-code"></div>
+                        <svg id="barcode-display" style="display:none;"></svg>
+                    </div>
+
+                    <div class="preview-info">
+                        <h2 id="preview-brand-name">My Shop</h2>
+                        <p id="preview-category">Text QR</p>
+                    </div>
+
+                    <div class="actions">
+                        <button class="btn-download" id="download-png">PNG</button>
+                        <button class="btn-download" id="download-jpg">JPG</button>
+                        <button class="btn-download" id="download-svg">SVG</button>
+                        <button class="btn-print" id="print-qr"><i class="fa-solid fa-print"></i></button>
+                    </div>
+                </div>
+
+                <!-- History -->
+                <div class="history-section">
+                    <h3>Recent History</h3>
+                    <div class="history-list" id="history-list">
+                        <!-- History items -->
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
