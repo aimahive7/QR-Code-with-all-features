@@ -127,7 +127,25 @@
                             <div class="col"><label>Last Name</label><input type="text" id="vcard-last"
                                     placeholder="Doe"></div>
                         </div>
-                        <label>Mobile</label><input type="tel" id="vcard-phone" placeholder="+1 234 567 890">
+
+                        <!-- Phone Numbers Section -->
+                        <label>Phone Numbers</label>
+                        <div id="vcard-phones-container">
+                            <div class="phone-input-row">
+                                <select class="phone-type">
+                                    <option value="CELL">Mobile</option>
+                                    <option value="WORK">Work</option>
+                                    <option value="HOME">Home</option>
+                                    <option value="VOICE">Voice</option>
+                                </select>
+                                <input type="tel" class="phone-number" placeholder="+1 234 567 890">
+                                <button type="button" class="btn-remove-phone" style="display:none;">×</button>
+                            </div>
+                        </div>
+                        <button type="button" id="add-phone-btn" class="btn-add-field">
+                            <i class="fa-solid fa-plus"></i> Add Phone Number
+                        </button>
+
                         <label>Email</label><input type="email" id="vcard-email" placeholder="john@example.com">
                         <label>Website</label><input type="url" id="vcard-site" placeholder="https://johndoe.com">
                         <label>Company</label><input type="text" id="vcard-company" placeholder="Company Inc.">
@@ -139,6 +157,13 @@
                             <div class="col"><label>Country</label><input type="text" id="vcard-country"
                                     placeholder="Country"></div>
                         </div>
+
+                        <!-- Google Maps Location -->
+                        <label>Google Maps Location (Optional)</label>
+                        <input type="text" id="vcard-location"
+                            placeholder="Paste Google Maps link or enter coordinates (lat,long)">
+                        <small style="color: var(--text-muted); font-size: 0.85rem;">Example:
+                            https://maps.google.com/?q=40.7128,-74.0060 or 40.7128,-74.0060</small>
                     </div>
 
                     <!-- Email Form -->

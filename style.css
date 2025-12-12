@@ -244,6 +244,63 @@ textarea {
     width: auto;
 }
 
+/* V-Card Phone Numbers */
+.phone-input-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.phone-input-row .phone-type {
+    flex: 0 0 120px;
+    width: 120px;
+}
+
+.phone-input-row .phone-number {
+    flex: 1;
+}
+
+.btn-remove-phone {
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    background-color: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    line-height: 1;
+}
+
+.btn-remove-phone:hover {
+    opacity: 0.8;
+}
+
+.btn-add-field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: opacity 0.2s;
+    margin-bottom: 1rem;
+}
+
+.btn-add-field:hover {
+    opacity: 0.9;
+}
+
 .branding-section {
     margin-top: 2rem;
     padding-top: 2rem;

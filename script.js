@@ -41,7 +41,84 @@ document.addEventListener('DOMContentLoaded', () => {
     loadHistory();
     updateQR(); // Initial render
 
+    // --- Helper Functions ---
+
+    function extractCoordinates(input) {
+        // Try to extract coordinates from various Google Maps URL formats or direct input
+        const patterns = [
+            /q=([-\d.]+),([-\d.]+)/, // ?q=lat,lng
+            /@([-\d.]+),([-\d.]+)/, // @lat,lng
+            /!([-\d.]+)!([-\d.]+)/, // !lat!lng
+            /^([-\d.]+),\s*([-\d.]+)$/ // Direct: lat,lng
+        ];
+
+        for (let pattern of patterns) {
+            const match = input.match(pattern);
+            if (match) {
+                return { lat: match[1], lng: match[2] };
+            }
+        }
+        return null;
+    }
+
     // --- Event Listeners ---
+
+    // V-Card Phone Number Management
+    const phonesContainer = document.getElementById('vcard-phones-container');
+    const addPhoneBtn = document.getElementById('add-phone-btn');
+
+    if (addPhoneBtn) {
+        addPhoneBtn.addEventListener('click', () => {
+            const phoneRow = document.createElement('div');
+            phoneRow.className = 'phone-input-row';
+            phoneRow.innerHTML = `
+                <select class="phone-type">
+                    <option value="CELL">Mobile</option>
+                    <option value="WORK">Work</option>
+                    <option value="HOME">Home</option>
+                    <option value="VOICE">Voice</option>
+                </select>
+                <input type="tel" class="phone-number" placeholder="+1 234 567 890">
+                <button type="button" class="btn-remove-phone">×</button>
+            `;
+            phonesContainer.appendChild(phoneRow);
+
+            // Add event listener to the remove button
+            const removeBtn = phoneRow.querySelector('.btn-remove-phone');
+            removeBtn.addEventListener('click', () => {
+                phoneRow.remove();
+                updateRemoveButtons();
+            });
+
+            updateRemoveButtons();
+
+            // Trigger QR update
+            setTimeout(() => updateQR(), 100);
+        });
+    }
+
+    function updateRemoveButtons() {
+        const phoneRows = document.querySelectorAll('#vcard-phones-container .phone-input-row');
+        phoneRows.forEach((row, index) => {
+            const removeBtn = row.querySelector('.btn-remove-phone');
+            if (phoneRows.length > 1) {
+                removeBtn.style.display = 'block';
+            } else {
+                removeBtn.style.display = 'none';
+            }
+        });
+    }
+
+    // Delegate event for phone inputs (for dynamically added fields)
+    if (phonesContainer) {
+        phonesContainer.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                updateQR();
+                updatePreviewInfo();
+            }, 300);
+        });
+    }
 
     // Navigation
     navItems.forEach(item => {
@@ -169,7 +246,6 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'vcard':
                 const first = document.getElementById('vcard-first').value;
                 const last = document.getElementById('vcard-last').value;
-                const vPhone = document.getElementById('vcard-phone').value;
                 const vEmail = document.getElementById('vcard-email').value;
                 const vSite = document.getElementById('vcard-site').value;
                 const vOrg = document.getElementById('vcard-company').value;
@@ -177,7 +253,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 const vStreet = document.getElementById('vcard-street').value;
                 const vCity = document.getElementById('vcard-city').value;
                 const vCountry = document.getElementById('vcard-country').value;
-                return `BEGIN:VCARD\nVERSION:3.0\nN:${last};${first}\nFN:${first} ${last}\nORG:${vOrg}\nTITLE:${vTitle}\nTEL:${vPhone}\nEMAIL:${vEmail}\nURL:${vSite}\nADR:;;${vStreet};${vCity};;;${vCountry}\nEND:VCARD`;
+                const vLocation = document.getElementById('vcard-location').value;
+
+                // Collect all phone numbers
+                const phoneRows = document.querySelectorAll('#vcard-phones-container .phone-input-row');
+                let phoneLines = '';
+                phoneRows.forEach(row => {
+                    const type = row.querySelector('.phone-type').value;
+                    const number = row.querySelector('.phone-number').value;
+                    if (number.trim()) {
+                        phoneLines += `TEL;TYPE=${type}:${number}\n`;
+                    }
+                });
+
+                // Parse Google Maps location
+                let geoLine = '';
+                if (vLocation.trim()) {
+                    const coords = extractCoordinates(vLocation);
+                    if (coords) {
+                        geoLine = `GEO:${coords.lat};${coords.lng}\n`;
+                    }
+                }
+
+                return `BEGIN:VCARD\nVERSION:3.0\nN:${last};${first}\nFN:${first} ${last}\nORG:${vOrg}\nTITLE:${vTitle}\n${phoneLines}EMAIL:${vEmail}\nURL:${vSite}\nADR:;;${vStreet};${vCity};;;${vCountry}\n${geoLine}END:VCARD`;
             case 'barcode':
                 return document.getElementById('barcode-value').value || "123456789";
             default:
@@ -275,69 +373,221 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Download & Print Logic ---
 
     async function downloadQR(format) {
+        if (currentCategory === 'barcode') {
+            downloadBarcode(format, brandNameInput.value || "My Shop");
+        } else if (currentCategory === 'vcard') {
+            // Special business card format for V-Card
+            await downloadVCardBusinessCard(format);
+        } else {
+            // Standard QR download for other categories
+            await downloadStandardQR(format);
+        }
+    }
+
+    async function downloadVCardBusinessCard(format) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // ATM Card dimensions at 300 DPI: 3.375" × 2.125" = 1012px × 638px
+        const width = 1012;
+        const height = 638;
+        const padding = 40;
+
+        canvas.width = width;
+        canvas.height = height;
+
+        // Background - White
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+
+        // Add subtle border
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(10, 10, width - 20, height - 20);
+
+        // Get V-Card data
+        const first = document.getElementById('vcard-first').value || '';
+        const last = document.getElementById('vcard-last').value || '';
+        const fullName = `${first} ${last}`.trim();
+        const vEmail = document.getElementById('vcard-email').value || '';
+        const vOrg = document.getElementById('vcard-company').value || '';
+        const vTitle = document.getElementById('vcard-job').value || '';
+        const vStreet = document.getElementById('vcard-street').value || '';
+        const vCity = document.getElementById('vcard-city').value || '';
+        const vCountry = document.getElementById('vcard-country').value || '';
+        const brandName = brandNameInput.value || '';
+
+        // Get all phone numbers
+        const phoneRows = document.querySelectorAll('#vcard-phones-container .phone-input-row');
+        const phones = [];
+        phoneRows.forEach(row => {
+            const number = row.querySelector('.phone-number').value;
+            if (number.trim()) {
+                phones.push(number);
+            }
+        });
+
+        // Build address string
+        let address = vStreet;
+        if (vCity) address += (address ? ', ' : '') + vCity;
+        if (vCountry) address += (address ? ', ' : '') + vCountry;
+
+        // Get QR Code as image
+        const rawData = await qrCode.getRawData('png');
+        const qrImg = new Image();
+        qrImg.src = URL.createObjectURL(rawData);
+
+        qrImg.onload = () => {
+            // QR Code - centered at top, larger size
+            const qrSize = 280;
+            const qrX = (width - qrSize) / 2;
+            const qrY = 50;
+
+            // Draw black background for QR
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(qrX - 15, qrY - 15, qrSize + 30, qrSize + 30);
+
+            ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
+
+            // Text section starts below QR
+            let currentY = qrY + qrSize + 40;
+
+            // Brand Name (if provided)
+            if (brandName) {
+                ctx.font = 'bold 32px Poppins, Arial, sans-serif';
+                ctx.fillStyle = '#000000';
+                ctx.textAlign = 'center';
+                ctx.fillText(brandName.toUpperCase(), width / 2, currentY);
+                currentY += 40;
+            }
+
+            // Full Name
+            if (fullName) {
+                ctx.font = 'bold 28px Poppins, Arial, sans-serif';
+                ctx.fillStyle = '#000000';
+                ctx.textAlign = 'center';
+                ctx.fillText(fullName, width / 2, currentY);
+                currentY += 35;
+            }
+
+            // Company & Title
+            if (vOrg || vTitle) {
+                const orgText = vTitle ? `${vTitle}${vOrg ? ' at ' + vOrg : ''}` : vOrg;
+                ctx.font = '20px Poppins, Arial, sans-serif';
+                ctx.fillStyle = '#4b5563';
+                ctx.textAlign = 'center';
+                ctx.fillText(orgText, width / 2, currentY);
+                currentY += 30;
+            }
+
+            // Phone Numbers with icons
+            if (phones.length > 0) {
+                ctx.font = 'bold 22px Poppins, Arial, sans-serif';
+                ctx.fillStyle = '#000000';
+                ctx.textAlign = 'center';
+                const phoneText = '📞 : ' + phones.join(', ');
+                ctx.fillText(phoneText, width / 2, currentY);
+                currentY += 30;
+            }
+
+            // Email with icon
+            if (vEmail) {
+                ctx.font = '20px Poppins, Arial, sans-serif';
+                ctx.fillStyle = '#1d4ed8';
+                ctx.textAlign = 'center';
+                ctx.fillText('📧 : ' + vEmail, width / 2, currentY);
+                currentY += 28;
+            }
+
+            // Address with icon (wrapped if too long)
+            if (address) {
+                ctx.font = '18px Poppins, Arial, sans-serif';
+                ctx.fillStyle = '#dc2626';
+                ctx.textAlign = 'center';
+
+                const maxWidth = width - 80;
+                const addressText = '📍 : ' + address;
+
+                // Wrap text if needed
+                const words = addressText.split(' ');
+                let line = '';
+                let lines = [];
+
+                for (let n = 0; n < words.length; n++) {
+                    const testLine = line + words[n] + ' ';
+                    const metrics = ctx.measureText(testLine);
+                    if (metrics.width > maxWidth && n > 0) {
+                        lines.push(line);
+                        line = words[n] + ' ';
+                    } else {
+                        line = testLine;
+                    }
+                }
+                lines.push(line);
+
+                lines.forEach((line, index) => {
+                    ctx.fillText(line.trim(), width / 2, currentY + (index * 24));
+                });
+            }
+
+            // Download
+            const link = document.createElement('a');
+            const fileName = fullName || brandName || 'contact_card';
+            const fileExt = format === 'jpeg' ? 'jpg' : format;
+            const mimeType = format === 'jpeg' ? 'jpeg' : format;
+
+            link.download = `${fileName.replace(/\s+/g, '_')}_Card.${fileExt}`;
+            link.href = canvas.toDataURL(`image/${mimeType}`);
+            link.click();
+        };
+    }
+
+    async function downloadStandardQR(format) {
         const brandName = brandNameInput.value || "My Shop";
         const categoryText = currentCategory.toUpperCase();
 
-        if (currentCategory === 'barcode') {
-            downloadBarcode(format, brandName);
-        } else {
-            // For QR Code, we need to composite the image with text
-            // We can get the QR as a blob/buffer from the library
-            // But the library's download() doesn't support custom text outside the QR.
-            // So we will render it to a canvas manually.
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const size = 1000;
+        const padding = 50;
+        const textSpace = 150;
 
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const size = 1000; // High res for download
-            const padding = 50;
-            const textSpace = 150; // Space for text at bottom
+        canvas.width = size;
+        canvas.height = size + textSpace;
 
-            canvas.width = size;
-            canvas.height = size + textSpace;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Fill Background (White card look)
-            ctx.fillStyle = "#ffffff";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const rawData = await qrCode.getRawData('png');
+        const img = new Image();
+        img.src = URL.createObjectURL(rawData);
 
-            // Get QR Image
-            // We need to wait for the QR to be ready. 
-            // Since we are using qr-code-styling, we can get the raw image data.
-            const rawData = await qrCode.getRawData('png');
-            const img = new Image();
-            img.src = URL.createObjectURL(rawData);
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0, size, size);
 
-            img.onload = () => {
-                // Draw QR
-                ctx.drawImage(img, 0, 0, size, size);
+            ctx.font = "bold 60px Poppins, sans-serif";
+            ctx.fillStyle = brandColorInput.value || "#000000";
+            ctx.textAlign = "center";
+            ctx.fillText(brandName, size / 2, size + 60);
 
-                // Draw Brand Name
-                ctx.font = "bold 60px Poppins, sans-serif";
-                ctx.fillStyle = brandColorInput.value || "#000000";
-                ctx.textAlign = "center";
-                ctx.fillText(brandName, size / 2, size + 60);
+            ctx.font = "40px Poppins, sans-serif";
+            ctx.fillStyle = "#6b7280";
+            ctx.fillText(categoryText + " QR", size / 2, size + 120);
 
-                // Draw Category/Subtitle
-                ctx.font = "40px Poppins, sans-serif";
-                ctx.fillStyle = "#6b7280";
-                ctx.fillText(categoryText + " QR", size / 2, size + 120);
+            const link = document.createElement('a');
+            const fileExt = format === 'jpeg' ? 'jpg' : (format === 'svg' ? 'svg' : 'png');
+            const mimeType = format === 'jpeg' ? 'jpeg' : (format === 'svg' ? 'png' : 'png');
 
-                // Download
-                const link = document.createElement('a');
-                link.download = `${brandName.replace(/\s+/g, '_')}_QR.${format}`;
-                link.href = canvas.toDataURL(`image/${format === 'svg' ? 'png' : format}`); // Fallback to png for canvas if svg requested, or handle svg separately
+            link.download = `${brandName.replace(/\s+/g, '_')}_QR.${fileExt}`;
+            link.href = canvas.toDataURL(`image/${mimeType}`);
 
-                if (format === 'svg') {
-                    // For SVG, we can't easily composite text with the library's output without parsing SVG.
-                    // For now, we'll download PNG for the composite view or just standard SVG for the QR only.
-                    // Let's stick to PNG/JPG for the composite text feature as it's pixel-based.
-                    // If user really wants SVG with text, we'd need to construct an SVG string.
-                    alert("SVG download with text is not fully supported. Downloading plain QR SVG.");
-                    qrCode.download({ name: "qr-code", extension: "svg" });
-                } else {
-                    link.click();
-                }
-            };
-        }
+            if (format === 'svg') {
+                alert("SVG download with text is not fully supported. Downloading plain QR SVG.");
+                qrCode.download({ name: "qr-code", extension: "svg" });
+            } else {
+                link.click();
+            }
+        };
     }
 
     function downloadBarcode(format, brandName) {
@@ -367,8 +617,9 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fillText(brandName, canvas.width / 2, canvas.height - 80);
 
             const link = document.createElement('a');
-            link.download = `barcode.${format}`;
-            link.href = canvas.toDataURL(`image/${format}`);
+            const fileExt = format === 'jpeg' ? 'jpg' : (format === 'svg' ? 'svg' : 'png');
+            link.download = `${brandName}_barcode.${fileExt}`;
+            link.href = canvas.toDataURL(`image/${format === 'jpeg' ? 'jpeg' : format}`);
             link.click();
         };
 
@@ -376,11 +627,235 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function printQR() {
-        // We rely on CSS @media print to style the page for printing
-        // But we want to ensure the text is visible in the print view.
-        // The current DOM already has the text in 'preview-info', so we just need to make sure
-        // the print stylesheet hides everything else and centers the preview card.
-        window.print();
+        if (currentCategory === 'vcard') {
+            // Create print preview for business card
+            printVCardBusinessCard();
+        } else {
+            // Standard print for other categories
+            window.print();
+        }
+    }
+
+    async function printVCardBusinessCard() {
+        // Create a temporary canvas for printing
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // ATM Card dimensions
+        const width = 1012;
+        const height = 638;
+
+        canvas.width = width;
+        canvas.height = height;
+
+        // Background
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+
+        // Border
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(10, 10, width - 20, height - 20);
+
+        // Get V-Card data
+        const first = document.getElementById('vcard-first').value || '';
+        const last = document.getElementById('vcard-last').value || '';
+        const fullName = `${first} ${last}`.trim();
+        const vEmail = document.getElementById('vcard-email').value || '';
+        const vOrg = document.getElementById('vcard-company').value || '';
+        const vTitle = document.getElementById('vcard-job').value || '';
+        const vStreet = document.getElementById('vcard-street').value || '';
+        const vCity = document.getElementById('vcard-city').value || '';
+        const vCountry = document.getElementById('vcard-country').value || '';
+        const brandName = brandNameInput.value || '';
+
+        // Get all phone numbers
+        const phoneRows = document.querySelectorAll('#vcard-phones-container .phone-input-row');
+        const phones = [];
+        phoneRows.forEach(row => {
+            const number = row.querySelector('.phone-number').value;
+            if (number.trim()) {
+                phones.push(number);
+            }
+        });
+
+        // Build address
+        let address = vStreet;
+        if (vCity) address += (address ? ', ' : '') + vCity;
+        if (vCountry) address += (address ? ', ' : '') + vCountry;
+
+        // Get QR Code
+        const rawData = await qrCode.getRawData('png');
+        const qrImg = new Image();
+        qrImg.src = URL.createObjectURL(rawData);
+
+        qrImg.onload = () => {
+            const qrSize = 280;
+            const qrX = (width - qrSize) / 2;
+            const qrY = 50;
+
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(qrX - 15, qrY - 15, qrSize + 30, qrSize + 30);
+            ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
+
+            let currentY = qrY + qrSize + 40;
+
+            if (brandName) {
+                ctx.font = 'bold 32px Poppins, Arial, sans-serif';
+                ctx.fillStyle = '#000000';
+                ctx.textAlign = 'center';
+                ctx.fillText(brandName.toUpperCase(), width / 2, currentY);
+                currentY += 40;
+            }
+
+            if (fullName) {
+                ctx.font = 'bold 28px Poppins, Arial, sans-serif';
+                ctx.fillStyle = '#000000';
+                ctx.textAlign = 'center';
+                ctx.fillText(fullName, width / 2, currentY);
+                currentY += 35;
+            }
+
+            if (vOrg || vTitle) {
+                const orgText = vTitle ? `${vTitle}${vOrg ? ' at ' + vOrg : ''}` : vOrg;
+                ctx.font = '20px Poppins, Arial, sans-serif';
+                ctx.fillStyle = '#4b5563';
+                ctx.textAlign = 'center';
+                ctx.fillText(orgText, width / 2, currentY);
+                currentY += 30;
+            }
+
+            if (phones.length > 0) {
+                ctx.font = 'bold 22px Poppins, Arial, sans-serif';
+                ctx.fillStyle = '#000000';
+                ctx.textAlign = 'center';
+                ctx.fillText('📞 : ' + phones.join(', '), width / 2, currentY);
+                currentY += 30;
+            }
+
+            if (vEmail) {
+                ctx.font = '20px Poppins, Arial, sans-serif';
+                ctx.fillStyle = '#1d4ed8';
+                ctx.textAlign = 'center';
+                ctx.fillText('📧 : ' + vEmail, width / 2, currentY);
+                currentY += 28;
+            }
+
+            if (address) {
+                ctx.font = '18px Poppins, Arial, sans-serif';
+                ctx.fillStyle = '#dc2626';
+                ctx.textAlign = 'center';
+
+                const maxWidth = width - 80;
+                const addressText = '📍 : ' + address;
+                const words = addressText.split(' ');
+                let line = '';
+                let lines = [];
+
+                for (let n = 0; n < words.length; n++) {
+                    const testLine = line + words[n] + ' ';
+                    const metrics = ctx.measureText(testLine);
+                    if (metrics.width > maxWidth && n > 0) {
+                        lines.push(line);
+                        line = words[n] + ' ';
+                    } else {
+                        line = testLine;
+                    }
+                }
+                lines.push(line);
+
+                lines.forEach((line, index) => {
+                    ctx.fillText(line.trim(), width / 2, currentY + (index * 24));
+                });
+            }
+
+            // Open print preview with the card
+            const imageUrl = canvas.toDataURL('image/png');
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Print Business Card</title>
+                    <style>
+                        * { margin: 0; padding: 0; box-sizing: border-box; }
+                        body {
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            min-height: 100vh;
+                            background: #f3f4f6;
+                            font-family: Arial, sans-serif;
+                        }
+                        .container {
+                            text-align: center;
+                            padding: 20px;
+                        }
+                        h2 {
+                            margin-bottom: 20px;
+                            color: #1f2937;
+                        }
+                        img {
+                            max-width: 100%;
+                            height: auto;
+                            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                            border-radius: 8px;
+                            margin-bottom: 20px;
+                        }
+                        .buttons {
+                            display: flex;
+                            gap: 10px;
+                            justify-content: center;
+                        }
+                        button {
+                            padding: 12px 24px;
+                            font-size: 16px;
+                            border: none;
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-weight: 600;
+                        }
+                        .print-btn {
+                            background: #4f46e5;
+                            color: white;
+                        }
+                        .print-btn:hover { background: #4338ca; }
+                        .close-btn {
+                            background: #6b7280;
+                            color: white;
+                        }
+                        .close-btn:hover { background: #4b5563; }
+                        @media print {
+                            body {
+                                background: white;
+                            }
+                            .container h2,
+                            .buttons {
+                                display: none;
+                            }
+                            img {
+                                box-shadow: none;
+                                border-radius: 0;
+                                max-width: 85.6mm;
+                                height: auto;
+                            }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h2>Business Card Print Preview</h2>
+                        <img src="${imageUrl}" alt="Business Card">
+                        <div class="buttons">
+                            <button class="print-btn" onclick="window.print()">🖨️ Print</button>
+                            <button class="close-btn" onclick="window.close()">✖ Close</button>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+        };
     }
 
     // --- History Management ---
